@@ -23,29 +23,36 @@ def get_path(root, myfile):
 
 
 def remove_dupes(same_folder_only = True, dry = False, directory = '.'):
-    file_list = []
+    file_dict = {}
+    deletion_size = 0
+    deletion_count = 0
     print("About to start walking %s" %(directory))
     print("Are we only deleting files in the same directory? : %d"%(same_folder_only))
     print("Is this a dry run? : %d" %(dry))
     for root, subdirs, files in os.walk(directory):
         if same_folder_only:
-            file_list = []
+            file_dict = {}
         for myfile in files:
             full_file = get_path(root, myfile)
             try:
                 checksum = get_checksum(full_file)
-                if checksum in file_list:
-                    print("Duplicate found - deleting: %s"%(full_file))
+                file_size = os.path.getsize(full_file)
+                if file_dict.get(checksum, False) and file_size == file_dict[checksum]:
+                    print("Duplicate found - deleting: %s - %d"%(full_file, file_size))
                     if dry is False:
                         os.remove(full_file)
+                    deletion_size += file_size
+                    deletion_count += 1
+                elif file_dict.get(checksum, False) and file_size != file_dict[checksum]:
+                    print("Files found containing duplicate MD5, but different file sizes: %s"%(full_file))
                 else:
-                    file_list.append(checksum)
+                    file_dict[checksum] = file_size
             except IOError:
                 print("Could not read filename %s"%(full_file))
             except WindowsError:
                 print("Could not delete filename %s"%(full_file))
-    print("Completed walk.")
-    return file_list
+    print("Completed walk. Deleted %d files and freed %d space"%(deletion_count, deletion_size))
+    return file_dict
 
 
 def remove_dupes_same_folder_only():
@@ -70,4 +77,3 @@ args = parser.parse_args()
 
 if __name__ == '__main__':
     remove_dupes(args.same_folder_only, args.dry, args.directory)
-
